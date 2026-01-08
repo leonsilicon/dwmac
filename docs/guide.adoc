@@ -268,6 +268,12 @@ Sets the default layout for new workspaces.
 Sets the default orientation (`horizontal`, `vertical`, or `auto`) for new workspaces.
 `auto` chooses horizontal for wide screens and vertical for tall screens.
 
+* `master-position` (default: `left`)
++
+Determines the position of the Master window in the Master-Stack layout when the orientation is horizontal.
+** `left`: Master window is on the left, Stack is on the right.
+** `right`: Master window is on the right, Stack is on the left.
+
 * `automatically-unhide-macos-hidden-apps` (default: `false`)
 +
 If `true`, Dwmac will unhide applications that were hidden using Cmd+H.

@@ -59,8 +59,13 @@ struct Config: ConvenienceCopyable {
     var modes: [String: Mode] = [:]
     var onWindowDetected: [WindowDetectedCallback] = []
     var onModeChanged: [any Command] = []
+    var masterPosition: MasterPosition = .left
 }
 
 enum DefaultContainerOrientation: String {
     case horizontal, vertical, auto
+}
+
+enum MasterPosition: String {
+    case left, right
 }

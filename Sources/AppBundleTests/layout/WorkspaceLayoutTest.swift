@@ -69,4 +69,36 @@ final class WorkspaceLayoutTest: XCTestCase {
         XCTAssertEqual(w2.lastAppliedLayoutPhysicalRect?.topLeftY, 544.5)
         XCTAssertEqual(w2.lastAppliedLayoutPhysicalRect?.height, 534.5)
     }
+
+    func testLayoutMasterStackRightMaster() async throws {
+        config.gaps = Gaps(
+            inner: .init(vertical: 10, horizontal: 10),
+            outer: .zero,
+        )
+        config.masterPosition = .right
+        defer { config.masterPosition = .left } // Reset after test
+
+        let workspace = Workspace.get(byName: "testRightMaster")
+        workspace.layout = .masterStack
+        workspace.orientation = .h
+
+        let initialRect = Rect(topLeftX: 0, topLeftY: 0, width: 100, height: 100)
+        let w1 = TestWindow.new(id: 1, parent: workspace, rect: initialRect)
+        let w2 = TestWindow.new(id: 2, parent: workspace, rect: initialRect)
+
+        try await workspace.layoutWorkspace()
+
+        // Available width = 1920. Gaps = 10.
+        // Master Width = 955. Stack Width = 955.
+
+        // Master (w1) should be on the RIGHT.
+        // X = 0 + StackWidth (955) + Gap (10) = 965.
+        XCTAssertEqual(w1.lastAppliedLayoutPhysicalRect?.topLeftX, 965)
+        XCTAssertEqual(w1.lastAppliedLayoutPhysicalRect?.width, 955)
+
+        // Stack (w2) should be on the LEFT.
+        // X = 0.
+        XCTAssertEqual(w2.lastAppliedLayoutPhysicalRect?.topLeftX, 0)
+        XCTAssertEqual(w2.lastAppliedLayoutPhysicalRect?.width, 955)
+    }
 }

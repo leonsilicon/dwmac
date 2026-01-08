@@ -18,6 +18,10 @@ default-root-container-layout = 'master-stack'
 # mfact for master-stack
 default-mfact = 0.5
 
+# Possible values: left|right
+# Default value: left
+master-position = 'left'
+
 # Whether new windows should be attached to the master position (index 0) or the last position.
 # Fallback value (if you omit the key): attach-below = false
 attach-below = false

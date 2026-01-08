@@ -54,15 +54,31 @@ extension Workspace {
             stackHeight = height - masterHeight - gapV
         }
 
+        let masterOrigin: CGPoint
+        let stackOrigin: CGPoint
+
+        if orientation == .h {
+            if config.masterPosition == .right {
+                masterOrigin = point.addingXOffset(stackWidth + gapH)
+                stackOrigin = point
+            } else {
+                masterOrigin = point
+                stackOrigin = point.addingXOffset(masterWidth + gapH)
+            }
+        } else {
+            masterOrigin = point
+            stackOrigin = point.addingYOffset(masterHeight + gapV)
+        }
+
         // Master window (first in list)
-        try await layoutWindow(windows[0], point, masterWidth, masterHeight, virtual, context)
+        try await layoutWindow(windows[0], masterOrigin, masterWidth, masterHeight, virtual, context)
 
         // Stack windows
         for i in 1 ..< windows.count {
             let stackPoint: CGPoint = if orientation == .h {
-                point.addingXOffset(masterWidth + gapH).addingYOffset(CGFloat(i - 1) * (stackHeight + gapV))
+                stackOrigin.addingYOffset(CGFloat(i - 1) * (stackHeight + gapV))
             } else {
-                point.addingYOffset(masterHeight + gapV).addingXOffset(CGFloat(i - 1) * (stackWidth + gapH))
+                stackOrigin.addingXOffset(CGFloat(i - 1) * (stackWidth + gapH))
             }
             try await layoutWindow(windows[i], stackPoint, stackWidth, stackHeight, virtual, context)
         }
