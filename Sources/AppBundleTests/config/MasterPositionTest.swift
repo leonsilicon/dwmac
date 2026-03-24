@@ -16,7 +16,7 @@ final class MasterPositionTest: XCTestCase {
     func testParseMasterPositionDefault() {
         let (config, errors) = parseConfig("")
         assertEquals(errors, [])
-        assertEquals(config.masterPosition, .left)
+        assertEquals(config.masterPosition, .right)
     }
 
     func testParseMasterPositionInvalid() {

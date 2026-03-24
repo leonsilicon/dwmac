@@ -19,8 +19,8 @@ default-root-container-layout = 'master-stack'
 default-mfact = 0.5
 
 # Possible values: left|right
-# Default value: left
-master-position = 'left'
+# Default value: right
+master-position = 'right'
 
 # Whether new windows should be attached to the master position (index 0) or the last position.
 # Fallback value (if you omit the key): attach-below = false
@@ -170,5 +170,4 @@ on-mode-changed = []
 
     # sticky is not yet supported https://github.com/hillyu/Dwmac/issues/2
     #s = ['layout sticky tiling', 'mode main']
-
 

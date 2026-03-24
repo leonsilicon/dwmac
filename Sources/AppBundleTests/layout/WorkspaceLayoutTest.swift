@@ -13,6 +13,7 @@ final class WorkspaceLayoutTest: XCTestCase {
             inner: .init(vertical: 10, horizontal: 10),
             outer: .zero,
         )
+        config.masterPosition = .left
 
         let workspace = Workspace.get(byName: "test")
         workspace.layout = .masterStack
@@ -75,8 +76,9 @@ final class WorkspaceLayoutTest: XCTestCase {
             inner: .init(vertical: 10, horizontal: 10),
             outer: .zero,
         )
+        let oldMasterPosition = config.masterPosition
         config.masterPosition = .right
-        defer { config.masterPosition = .left } // Reset after test
+        defer { config.masterPosition = oldMasterPosition }
 
         let workspace = Workspace.get(byName: "testRightMaster")
         workspace.layout = .masterStack

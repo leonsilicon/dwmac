@@ -268,7 +268,7 @@ Sets the default layout for new workspaces.
 Sets the default orientation (`horizontal`, `vertical`, or `auto`) for new workspaces.
 `auto` chooses horizontal for wide screens and vertical for tall screens.
 
-* `master-position` (default: `left`)
+* `master-position` (default: `right`)
 +
 Determines the position of the Master window in the Master-Stack layout when the orientation is horizontal.
 ** `left`: Master window is on the left, Stack is on the right.
