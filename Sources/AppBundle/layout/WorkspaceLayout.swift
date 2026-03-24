@@ -1,14 +1,120 @@
 import AppKit
+import Common
+
+struct MasterStackLayoutMetrics {
+    let workspaceRect: Rect
+    let tilingHeight: CGFloat
+    let gapH: CGFloat
+    let gapV: CGFloat
+    let orientation: Orientation
+    let masterPosition: MasterPosition
+    let windows: [Window]
+    let mfact: CGFloat
+
+    var width: CGFloat { workspaceRect.width }
+    var height: CGFloat { tilingHeight }
+    var hasSplit: Bool { windows.count > 1 }
+    var masterWindow: Window? { windows.first }
+
+    var splitLength: CGFloat {
+        switch orientation {
+            case .h: width - gapH
+            case .v: height - gapV
+        }
+    }
+
+    var masterWidth: CGFloat {
+        guard hasSplit else { return width }
+        return orientation == .h ? splitLength * mfact : width
+    }
+
+    var masterHeight: CGFloat {
+        guard hasSplit else { return height }
+        return orientation == .h ? height : splitLength * mfact
+    }
+
+    var stackWidth: CGFloat {
+        guard hasSplit else { return 0 }
+        return orientation == .h
+            ? width - masterWidth - gapH
+            : (width - CGFloat(windows.count - 2) * gapH) / CGFloat(windows.count - 1)
+    }
+
+    var stackHeight: CGFloat {
+        guard hasSplit else { return 0 }
+        return orientation == .h
+            ? (height - CGFloat(windows.count - 2) * gapV) / CGFloat(windows.count - 1)
+            : height - masterHeight - gapV
+    }
+
+    var masterOrigin: CGPoint {
+        switch orientation {
+            case .h where masterPosition == .right:
+                workspaceRect.topLeftCorner.addingXOffset(stackWidth + gapH)
+            case .h:
+                workspaceRect.topLeftCorner
+            case .v:
+                workspaceRect.topLeftCorner
+        }
+    }
+
+    var stackOrigin: CGPoint {
+        switch orientation {
+            case .h where masterPosition == .right:
+                workspaceRect.topLeftCorner
+            case .h:
+                workspaceRect.topLeftCorner.addingXOffset(masterWidth + gapH)
+            case .v:
+                workspaceRect.topLeftCorner.addingYOffset(masterHeight + gapV)
+        }
+    }
+
+    func resizedMfact(for window: Window, currentRect: Rect) -> CGFloat? {
+        guard hasSplit else { return nil }
+        guard splitLength > 0 else { return nil }
+        guard let masterWindow else { return nil }
+        guard windows.contains(window) else { return nil }
+
+        let newMasterSpan: CGFloat = switch orientation {
+            case .h:
+                if window == masterWindow {
+                    switch masterPosition {
+                        case .left:
+                            currentRect.maxX - workspaceRect.minX
+                        case .right:
+                            splitLength - (currentRect.minX - workspaceRect.minX - gapH)
+                    }
+                } else {
+                    switch masterPosition {
+                        case .left:
+                            currentRect.minX - workspaceRect.minX - gapH
+                        case .right:
+                            splitLength - (currentRect.maxX - workspaceRect.minX)
+                    }
+                }
+            case .v:
+                if window == masterWindow {
+                    currentRect.maxY - workspaceRect.minY
+                } else {
+                    currentRect.minY - workspaceRect.minY - gapV
+                }
+        }
+
+        let clampedMasterSpan = newMasterSpan.coerceIn(0 ... splitLength)
+        return (clampedMasterSpan / splitLength).coerceIn(0.05 ... 0.95)
+    }
+}
 
 extension Workspace {
     @MainActor
     func layoutWorkspace() async throws {
         if isEffectivelyEmpty { return }
-        let rect = workspaceMonitor.visibleRectPaddedByOuterGaps
         let context = LayoutContext(self)
 
         // Layout tiling windows
-        try await layoutMasterStack(rect.topLeftCorner, width: rect.width, height: rect.height - 1, virtual: rect, context)
+        if let metrics = masterStackLayoutMetrics(context.resolvedGaps) {
+            try await layoutMasterStack(metrics, context)
+        }
 
         // Layout floating windows
         for window in children.filterIsInstance(of: Window.self).filter({ $0.isFloating }) {
@@ -19,69 +125,48 @@ extension Workspace {
     }
 
     @MainActor
-    private func layoutMasterStack(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
-        let windows = tilingWindows
-        if windows.isEmpty { return }
-
-        if layout == .floating {
+    private func layoutMasterStack(_ metrics: MasterStackLayoutMetrics, _ context: LayoutContext) async throws {
+        if metrics.windows.count == 1 {
+            let window = metrics.windows[0]
+            try await layoutWindow(window, metrics.workspaceRect.topLeftCorner, metrics.width, metrics.height, metrics.workspaceRect, context)
             return
-        }
-
-        if windows.count == 1 {
-            let window = windows[0]
-            try await layoutWindow(window, point, width, height, virtual, context)
-            return
-        }
-
-        let gaps = context.resolvedGaps.inner
-        let gapH = CGFloat(gaps.horizontal)
-        let gapV = CGFloat(gaps.vertical)
-
-        let masterWidth: CGFloat
-        let masterHeight: CGFloat
-        let stackWidth: CGFloat
-        let stackHeight: CGFloat
-
-        if orientation == .h {
-            masterWidth = (width - gapH) * mfact
-            masterHeight = height
-            stackWidth = width - masterWidth - gapH
-            stackHeight = (height - CGFloat(windows.count - 2) * gapV) / CGFloat(windows.count - 1)
-        } else {
-            masterWidth = width
-            masterHeight = (height - gapV) * mfact
-            stackWidth = (width - CGFloat(windows.count - 2) * gapH) / CGFloat(windows.count - 1)
-            stackHeight = height - masterHeight - gapV
-        }
-
-        let masterOrigin: CGPoint
-        let stackOrigin: CGPoint
-
-        if orientation == .h {
-            if config.masterPosition == .right {
-                masterOrigin = point.addingXOffset(stackWidth + gapH)
-                stackOrigin = point
-            } else {
-                masterOrigin = point
-                stackOrigin = point.addingXOffset(masterWidth + gapH)
-            }
-        } else {
-            masterOrigin = point
-            stackOrigin = point.addingYOffset(masterHeight + gapV)
         }
 
         // Master window (first in list)
-        try await layoutWindow(windows[0], masterOrigin, masterWidth, masterHeight, virtual, context)
+        try await layoutWindow(metrics.windows[0], metrics.masterOrigin, metrics.masterWidth, metrics.masterHeight, metrics.workspaceRect, context)
 
         // Stack windows
-        for i in 1 ..< windows.count {
-            let stackPoint: CGPoint = if orientation == .h {
-                stackOrigin.addingYOffset(CGFloat(i - 1) * (stackHeight + gapV))
+        for i in 1 ..< metrics.windows.count {
+            let stackPoint: CGPoint = if metrics.orientation == .h {
+                metrics.stackOrigin.addingYOffset(CGFloat(i - 1) * (metrics.stackHeight + metrics.gapV))
             } else {
-                stackOrigin.addingXOffset(CGFloat(i - 1) * (stackWidth + gapH))
+                metrics.stackOrigin.addingXOffset(CGFloat(i - 1) * (metrics.stackWidth + metrics.gapH))
             }
-            try await layoutWindow(windows[i], stackPoint, stackWidth, stackHeight, virtual, context)
+            try await layoutWindow(metrics.windows[i], stackPoint, metrics.stackWidth, metrics.stackHeight, metrics.workspaceRect, context)
         }
+    }
+
+    @MainActor
+    func masterStackLayoutMetrics() -> MasterStackLayoutMetrics? {
+        masterStackLayoutMetrics(ResolvedGaps(gaps: config.gaps, monitor: workspaceMonitor))
+    }
+
+    @MainActor
+    private func masterStackLayoutMetrics(_ resolvedGaps: ResolvedGaps) -> MasterStackLayoutMetrics? {
+        let windows = tilingWindows
+        guard !windows.isEmpty else { return nil }
+        guard layout != .floating else { return nil }
+
+        return MasterStackLayoutMetrics(
+            workspaceRect: workspaceMonitor.visibleRectPaddedByOuterGaps,
+            tilingHeight: workspaceMonitor.visibleRectPaddedByOuterGaps.height - 1,
+            gapH: CGFloat(resolvedGaps.inner.horizontal),
+            gapV: CGFloat(resolvedGaps.inner.vertical),
+            orientation: orientation,
+            masterPosition: config.masterPosition,
+            windows: windows,
+            mfact: mfact,
+        )
     }
 
     @MainActor

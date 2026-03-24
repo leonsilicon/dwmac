@@ -32,18 +32,16 @@ func resetManipulatedWithMouseIfPossible() async throws {
 }
 
 @MainActor
-private func resizeWithMouse(_ window: Window) async throws { // todo cover with tests
+func resizeWithMouse(_ window: Window) async throws {
     resetClosedWindowsCache()
-    guard let _ = window.nodeWorkspace else { return }
+    guard let workspace = window.nodeWorkspace else { return }
 
     if window.isFloating {
         return
     }
 
-    // Todo: Implement mouse resizing for Master-Stack layout
-    // This requires detecting if we are resizing the master split (update mfact)
-    // or stack split (update weights).
+    guard let currentRect = try await window.getAxRect() else { return }
+    guard let newMfact = workspace.masterStackLayoutMetrics()?.resizedMfact(for: window, currentRect: currentRect) else { return }
 
-    // For now, we disable mouse resize logic to fix compilation.
-    // DWM typically uses keyboard for resizing master area.
+    workspace.mfact = newMfact
 }

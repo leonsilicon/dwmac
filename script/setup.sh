@@ -37,12 +37,26 @@ if /bin/test -z "${NUKE_PATH:-}"; then
     export NUKE_PATH=1
 fi
 
+swiftly_usable=0
+swiftly_requested_version=""
+if /bin/test -f .swift-version; then
+    swiftly_requested_version="$(/bin/cat .swift-version)"
+fi
+if /usr/bin/which swiftly &> /dev/null; then
+    if swiftly run swift --version > /dev/null 2>&1; then
+        swiftly_usable=1
+    else
+        echo "warning: swiftly is installed, but toolchain '${swiftly_requested_version:-unknown}' isn't available. Falling back to plain swift" > /dev/stderr
+    fi
+fi
+
 swift() {
-    if /usr/bin/which swiftly &> /dev/null; then
+    if /bin/test "${swiftly_usable}" = 1; then
         swiftly run swift "$@"
     else
-        echo "warning: swiftly is not installed. Fallback to plain swift. Swift compilation might not be reproducible" > /dev/stderr
-        /usr/bin/env swift --version
+        if ! /usr/bin/which swiftly &> /dev/null; then
+            echo "warning: swiftly is not installed. Falling back to plain swift. Swift compilation might not be reproducible" > /dev/stderr
+        fi
         /usr/bin/env swift "$@"
     fi
 }
